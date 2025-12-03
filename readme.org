@@ -1,3 +1,8 @@
 * [[https://learnopengl.com/][learnopengl.com]] in common lisp
 
+** inspired by
+
+- [[https://gist.github.com/realark/d88866fa2fe2459f59e53620931ad155][gist realark/ctriangle.cpp]]
+- [[https://github.com/3b/learnopengl][3b/learnopengl]]
+- [[https://github.com/JoeyDeVries/LearnOpenGL][learnopengl.com repo]]
 

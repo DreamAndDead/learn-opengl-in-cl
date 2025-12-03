@@ -6,3 +6,7 @@
  (:class qlot/source/ql:source-ql
   :initargs (:%version :latest)
   :version "ql-2025-06-22"))
+("cl-sdl2" .
+ (:class qlot/source/ql:source-ql
+  :initargs (:%version :latest)
+  :version "ql-2023-10-21"))
