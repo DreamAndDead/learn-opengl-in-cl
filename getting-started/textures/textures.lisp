@@ -15,13 +15,23 @@
 (defvar *vao* nil)
 (defvar *vbo* nil)
 (defvar *ebo* nil)
-(defvar *texture* nil)
+(defvar *texture1* nil)
+(defvar *texture2* nil)
 
 (defclass shader ()
   ((program-id :type unsigned-int :initarg :program-id :reader program-id)))
 
 (defun use (shader)
   (gl:use-program (program-id shader)))
+
+(defun set-uniformi (shader name x &optional y z w)
+  (use shader)
+  (let ((loc (gl:get-uniform-location (program-id shader) name)))
+    (cond
+      (w (gl:uniformi loc x y z w))
+      (z (gl:uniformi loc x y z))
+      (y (gl:uniformi loc x y))
+      (x (gl:uniformi loc x)))))
 
 (defun assert-no-shader-errors (shader-id)
   (let ((success (cffi:foreign-alloc :int :initial-element 0)))
@@ -107,8 +117,6 @@
                         (setf (gl:glaref gl-array i)
                               (elt indices i))
                       :finally (return gl-array))))
-
-
         
         (setf *vao* (gl:gen-vertex-array))
         (setf *vbo* (gl:gen-buffer))
@@ -133,27 +141,40 @@
         (gl:bind-buffer :array-buffer 0)
         (gl:bind-buffer :element-array-buffer 0)
           
+        ;; FIXME image upside down
         (progn
-          (setf *texture* (gl:gen-texture))
-          (gl:bind-texture :texture-2d *texture*)
+          (setf *texture1* (gl:gen-texture))
+          (gl:bind-texture :texture-2d *texture1*)
           (gl:tex-parameter :texture-2d :texture-wrap-s :repeat)
           (gl:tex-parameter :texture-2d :texture-wrap-t :repeat)
           (gl:tex-parameter :texture-2d :texture-min-filter :linear)
           (gl:tex-parameter :texture-2d :texture-mag-filter :linear)
 
-          (let ((wall (sdl2-image:load-jpg-rw (uiop:merge-pathnames* "./getting-started/textures/wall.jpg"))))
+          (let ((image (sdl2-image:load-jpg-rw "./getting-started/textures/wall.jpg")))
             (gl:tex-image-2d :texture-2d 0 :rgb
-                             (sdl2:surface-width wall) (sdl2:surface-height wall)
-                             0 :rgb :unsigned-byte (sdl2:surface-pixels wall))
+                             (sdl2:surface-width image) (sdl2:surface-height image)
+                             0 :rgb :unsigned-byte (sdl2:surface-pixels image))
             (gl:generate-mipmap :texture-2d)
-            ;; FIXME image upside down
-            ;; FIXME free jpg image
-            ))
+            (sdl2:free-surface image)))
+
+        (progn
+          (setf *texture2* (gl:gen-texture))
+          (gl:bind-texture :texture-2d *texture2*)
+          (gl:tex-parameter :texture-2d :texture-wrap-s :repeat)
+          (gl:tex-parameter :texture-2d :texture-wrap-t :repeat)
+          (gl:tex-parameter :texture-2d :texture-min-filter :linear)
+          (gl:tex-parameter :texture-2d :texture-mag-filter :linear)
+
+          (let ((image (sdl2-image:load-png-rw "./getting-started/textures/awesomeface.png")))
+            (gl:tex-image-2d :texture-2d 0 :rgb
+                             (sdl2:surface-width image) (sdl2:surface-height image)
+                             0 :rgba :unsigned-byte (sdl2:surface-pixels image))
+            (gl:generate-mipmap :texture-2d)
+            (sdl2:free-surface image)))
 
         (gl:viewport 0 0 *width* *height*)
-        (use *shader*)
-        (let ((loc (gl:get-uniform-location (program-id *shader*) "ourTexture")))
-          (gl:uniformi loc 0))
+        (set-uniformi *shader* "Texture1" 0)
+        (set-uniformi *shader* "Texture2" 1)
         
         (sdl2:with-event-loop (:method :poll)
           (:idle ()
@@ -162,7 +183,9 @@
 
                  (use *shader*)
                  (gl:active-texture :texture0)
-                 (gl:bind-texture :texture-2d *texture*)
+                 (gl:bind-texture :texture-2d *texture1*)
+                 (gl:active-texture :texture1)
+                 (gl:bind-texture :texture-2d *texture2*)
                  (gl:bind-vertex-array *vao*)
                  (%gl:draw-elements :triangles 6 :unsigned-int 0)
 
