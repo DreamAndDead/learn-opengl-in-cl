@@ -1,7 +1,8 @@
-;; https://learnopengl.com/Getting-started/Shaders
+;; https://learnopengl.com/Getting-started/Textures
 (in-package :cl-user)
 
 (require :sdl2)
+(require :sdl2-image)
 (require :cl-opengl)
 
 (defparameter *width* 960)
@@ -14,6 +15,7 @@
 (defvar *vao* nil)
 (defvar *vbo* nil)
 (defvar *ebo* nil)
+(defvar *texture* nil)
 
 (defclass shader ()
   ((program-id :type unsigned-int :initarg :program-id :reader program-id)))
@@ -77,16 +79,19 @@
                         sdl2-ffi:+sdl-gl-context-forward-compatible-flag+))
 
     (sdl2:with-window (win :w *width* :h *height* :flags '(:shown :opengl))
+      (sdl2-image:init '(:jpg :png))
+
       (sdl2:with-gl-context (gl-context win)
         (sdl2:gl-make-current win gl-context)
 
-        (setf *shader* (make-shader "getting-started/shaders-with-class/shader.vert"
-                                    "getting-started/shaders-with-class/shader.frag"))
+        (setf *shader* (make-shader "getting-started/textures/shader.vert"
+                                    "getting-started/textures/shader.frag"))
 
-        (let ((vertices #(0.5 0.5 0.0    0.0 0.0 0.0
-                          0.5 -0.5 0.0   1.0 0.0 0.0
-                          -0.5 -0.5 0.0  0.0 1.0 0.0
-                          -0.5 0.5 0.0   0.0 0.0 1.0)))
+        (let ((vertices #(0.5 0.5 0.0    0.0 0.0 0.0   1.0 1.0   ;; top right
+                          0.5 -0.5 0.0   1.0 0.0 0.0   1.0 0.0   ;; bottom right
+                          -0.5 -0.5 0.0  0.0 1.0 0.0   0.0 0.0   ;; bottom left
+                          -0.5 0.5 0.0   0.0 0.0 1.0   0.0 1.0   ;; top left
+                          )))
           (setf *gl-triangle*
                 (loop :with gl-array = (gl:alloc-gl-array :float (length vertices))
                       :for i :from 0 :below (length vertices) :do
@@ -103,6 +108,8 @@
                               (elt indices i))
                       :finally (return gl-array))))
 
+
+        
         (setf *vao* (gl:gen-vertex-array))
         (setf *vbo* (gl:gen-buffer))
         (setf *ebo* (gl:gen-buffer))
@@ -116,21 +123,46 @@
         (gl:buffer-data :element-array-buffer :static-draw *gl-triangle-indices*)
           
         (gl:enable-vertex-attrib-array 0)
-        (gl:vertex-attrib-pointer 0 3 :float 0 (* 6 (cffi:foreign-type-size :float)) 0)
+        (gl:vertex-attrib-pointer 0 3 :float 0 (* 8 (cffi:foreign-type-size :float)) 0)
         (gl:enable-vertex-attrib-array 1)
-        (gl:vertex-attrib-pointer 1 3 :float 0 (* 6 (cffi:foreign-type-size :float)) (* 3 (cffi:foreign-type-size :float)))
+        (gl:vertex-attrib-pointer 1 3 :float 0 (* 8 (cffi:foreign-type-size :float)) (* 3 (cffi:foreign-type-size :float)))
+        (gl:enable-vertex-attrib-array 2)
+        (gl:vertex-attrib-pointer 2 2 :float 0 (* 8 (cffi:foreign-type-size :float)) (* 6 (cffi:foreign-type-size :float)))
 
         (gl:bind-vertex-array 0)
         (gl:bind-buffer :array-buffer 0)
         (gl:bind-buffer :element-array-buffer 0)
           
+        (progn
+          (setf *texture* (gl:gen-texture))
+          (gl:bind-texture :texture-2d *texture*)
+          (gl:tex-parameter :texture-2d :texture-wrap-s :repeat)
+          (gl:tex-parameter :texture-2d :texture-wrap-t :repeat)
+          (gl:tex-parameter :texture-2d :texture-min-filter :linear)
+          (gl:tex-parameter :texture-2d :texture-mag-filter :linear)
+
+          (let ((wall (sdl2-image:load-jpg-rw (uiop:merge-pathnames* "./getting-started/textures/wall.jpg"))))
+            (gl:tex-image-2d :texture-2d 0 :rgb
+                             (sdl2:surface-width wall) (sdl2:surface-height wall)
+                             0 :rgb :unsigned-byte (sdl2:surface-pixels wall))
+            (gl:generate-mipmap :texture-2d)
+            ;; FIXME image upside down
+            ;; FIXME free jpg image
+            ))
+
         (gl:viewport 0 0 *width* *height*)
+        (use *shader*)
+        (let ((loc (gl:get-uniform-location (program-id *shader*) "ourTexture")))
+          (gl:uniformi loc 0))
+        
         (sdl2:with-event-loop (:method :poll)
           (:idle ()
                  (gl:clear-color 0.0 1.0 1.0 1.0)
                  (gl:clear :color-buffer-bit)
 
                  (use *shader*)
+                 (gl:active-texture :texture0)
+                 (gl:bind-texture :texture-2d *texture*)
                  (gl:bind-vertex-array *vao*)
                  (%gl:draw-elements :triangles 6 :unsigned-int 0)
 
@@ -138,10 +170,12 @@
                  (sdl2:gl-swap-window win))
           (:quit () t))
 
+
+        (sdl2-image:quit)
+
         (progn
           (gl:use-program 0)
-          (gl:delete-program *shader-program-id*)
-          (setf *shader-program-id* 0)
+          (gl:delete-program (program-id *shader*))
           (gl:bind-vertex-array 0)
           (gl:delete-vertex-arrays (list *vao*))
           (setf *vao* nil)
