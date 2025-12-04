@@ -19,6 +19,11 @@
 (defvar *texture1* nil)
 (defvar *texture2* nil)
 
+(defparameter *camera-pos* (kit.glm:vec 0.0 0.0 3.0))
+(defparameter *camera-front* (kit.glm:vec 0.0 0.0 -1.0))
+(defparameter *camera-up* (kit.glm:vec 0.0 1.0 0.0))
+(defparameter *camera-speed* 1.0)
+
 (defclass shader ()
   ((program-id :type unsigned-int :initarg :program-id :reader program-id)))
 
@@ -90,11 +95,10 @@
   (use *shader*)
 
   (let ((view (kit.glm:identity-matrix))
-        (proj (kit.glm:identity-matrix))
-        (time (float (/ (sdl2:get-ticks) 1000))))
-    (setf view (kit.glm:look-at (kit.glm:vec (* 10 (sin time)) 0.0 (* 10 (cos time)))
-                                (kit.glm:vec 0.0 0.0 0.0)
-                                (kit.glm:vec 0.0 1.0 0.0)))
+        (proj (kit.glm:identity-matrix)))
+    (setf view (kit.glm:look-at *camera-pos*
+                                (kit.glm:vec+ *camera-pos* *camera-front*)
+                                *camera-up*))
     (setf proj (kit.glm:perspective-matrix 45.0 (float (/ *width* *height*)) 0.1 100.0))
     (set-mat4fv *shader* "view" view)
     (set-mat4fv *shader* "proj" proj))
@@ -258,6 +262,29 @@
         (set-uniformi *shader* "Texture2" 1)
 
         (sdl2:with-event-loop (:method :poll)
+          (:keydown (:keysym keysym)
+                    (let ((scancode (sdl2:scancode-value keysym))
+                          (dt (float (/ 33 1000))))
+                      (cond
+                        ((sdl2:scancode= scancode :scancode-w)
+                         (setf *camera-pos* (kit.glm:vec+ *camera-pos*
+                                                          (kit.glm:vec* *camera-front* (* dt  *camera-speed*)))))
+                        ((sdl2:scancode= scancode :scancode-s)
+                         (setf *camera-pos* (kit.glm:vec- *camera-pos*
+                                                          (kit.glm:vec* *camera-front* (* dt *camera-speed*)))))
+                        ((sdl2:scancode= scancode :scancode-a)
+                         (setf *camera-pos*
+                               (kit.glm:vec- *camera-pos*
+                                             (kit.glm:vec*
+                                              (kit.glm:normalize (kit.glm:cross-product *camera-front* *camera-up*))
+                                              (* dt *camera-speed*)))))
+                        ((sdl2:scancode= scancode :scancode-d)
+                         (setf *camera-pos*
+                               (kit.glm:vec+ *camera-pos*
+                                             (kit.glm:vec*
+                                              (kit.glm:normalize (kit.glm:cross-product *camera-front* *camera-up*))
+                                              (* dt *camera-speed*)))))
+                        )))
           (:idle ()
                  (draw)
 
