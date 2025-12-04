@@ -84,27 +84,44 @@
 
 (defun draw ()
   (gl:clear-color 0.0 1.0 1.0 1.0)
-  (gl:clear :color-buffer-bit)
+  (gl:enable :depth-test)
+  (gl:clear :color-buffer-bit :depth-buffer-bit)
 
   (use *shader*)
 
   (let ((model (kit.glm:identity-matrix))
         (view (kit.glm:identity-matrix))
         (proj (kit.glm:identity-matrix)))
-    (setf model (kit.glm:rotate-around (kit.glm:vec 1.0 0.0 0.0) (kit.glm:deg-to-rad -55.0)))
+    (setf model (kit.glm:rotate-around (kit.glm:vec 0.5 1.0 0.0) (kit.glm:deg-to-rad 30.0)))
     (setf view (kit.glm:matrix* view (kit.glm:translate* 0.0 0.0 -3.0)))
     (setf proj (kit.glm:perspective-matrix 45.0 (float (/ *width* *height*)) 0.1 100.0))
     (set-mat4fv *shader* "model" model)
     (set-mat4fv *shader* "view" view)
     (set-mat4fv *shader* "proj" proj))
-  
 
   (gl:active-texture :texture0)
   (gl:bind-texture :texture-2d *texture1*)
   (gl:active-texture :texture1)
   (gl:bind-texture :texture-2d *texture2*)
   (gl:bind-vertex-array *vao*)
-  (%gl:draw-elements :triangles 6 :unsigned-int 0))
+
+  (let ((positions (list (kit.glm:vec 0.0  0.0  0.0) 
+                         (kit.glm:vec  2.0  5.0 -15.0) 
+                         (kit.glm:vec -1.5 -2.2 -2.5)  
+                         (kit.glm:vec -3.8 -2.0 -12.3)  
+                         (kit.glm:vec  2.4 -0.4 -3.5)  
+                         (kit.glm:vec -1.7  3.0 -7.5)  
+                         (kit.glm:vec  1.3 -2.0 -2.5)  
+                         (kit.glm:vec  1.5  2.0 -2.5) 
+                         (kit.glm:vec  1.5  0.2 -1.5) 
+                         (kit.glm:vec -1.3  1.0 -1.5))))
+    (loop for p in positions
+          do
+             (let ((model (kit.glm:matrix*
+                           (kit.glm:rotate-around (kit.glm:vec 1.0 0.3 0.5) (kit.glm:deg-to-rad 10.0))
+                           (kit.glm:translate p))))
+               (set-mat4fv *shader* "model" model)
+               (gl:draw-arrays :triangles 0 36)))))
 
 (defun main()
   (sdl2:with-init (:everything)
@@ -127,11 +144,47 @@
         (setf *shader* (make-shader "getting-started/coordinate-systems/shader.vert"
                                     "getting-started/coordinate-systems/shader.frag"))
 
-        (let ((vertices #(0.5 0.5 0.0    0.0 0.0 0.0   1.0 1.0   ;; top right
-                          0.5 -0.5 0.0   1.0 0.0 0.0   1.0 0.0   ;; bottom right
-                          -0.5 -0.5 0.0  0.0 1.0 0.0   0.0 0.0   ;; bottom left
-                          -0.5 0.5 0.0   0.0 0.0 1.0   0.0 1.0   ;; top left
-                          )))
+        (let ((vertices #(-0.5 -0.5 -0.5  0.0 0.0
+                          0.5 -0.5 -0.5  1.0 0.0
+                          0.5  0.5 -0.5  1.0 1.0
+                          0.5  0.5 -0.5  1.0 1.0
+                          -0.5  0.5 -0.5  0.0 1.0
+                          -0.5 -0.5 -0.5  0.0 0.0
+
+                          -0.5 -0.5  0.5  0.0 0.0
+                          0.5 -0.5  0.5  1.0 0.0
+                          0.5  0.5  0.5  1.0 1.0
+                          0.5  0.5  0.5  1.0 1.0
+                          -0.5  0.5  0.5  0.0 1.0
+                          -0.5 -0.5  0.5  0.0 0.0
+
+                          -0.5  0.5  0.5  1.0 0.0
+                          -0.5  0.5 -0.5  1.0 1.0
+                          -0.5 -0.5 -0.5  0.0 1.0
+                          -0.5 -0.5 -0.5  0.0 1.0
+                          -0.5 -0.5  0.5  0.0 0.0
+                          -0.5  0.5  0.5  1.0 0.0
+
+                          0.5  0.5  0.5  1.0 0.0
+                          0.5  0.5 -0.5  1.0 1.0
+                          0.5 -0.5 -0.5  0.0 1.0
+                          0.5 -0.5 -0.5  0.0 1.0
+                          0.5 -0.5  0.5  0.0 0.0
+                          0.5  0.5  0.5  1.0 0.0
+
+                          -0.5 -0.5 -0.5  0.0 1.0
+                          0.5 -0.5 -0.5  1.0 1.0
+                          0.5 -0.5  0.5  1.0 0.0
+                          0.5 -0.5  0.5  1.0 0.0
+                          -0.5 -0.5  0.5  0.0 0.0
+                          -0.5 -0.5 -0.5  0.0 1.0
+
+                          -0.5  0.5 -0.5  0.0 1.0
+                          0.5  0.5 -0.5  1.0 1.0
+                          0.5  0.5  0.5  1.0 0.0
+                          0.5  0.5  0.5  1.0 0.0
+                          -0.5  0.5  0.5  0.0 0.0
+                          -0.5  0.5 -0.5  0.0 1.0)))
           (setf *gl-triangle*
                 (loop :with gl-array = (gl:alloc-gl-array :float (length vertices))
                       :for i :from 0 :below (length vertices) :do
@@ -161,11 +214,9 @@
         (gl:buffer-data :element-array-buffer :static-draw *gl-triangle-indices*)
           
         (gl:enable-vertex-attrib-array 0)
-        (gl:vertex-attrib-pointer 0 3 :float 0 (* 8 (cffi:foreign-type-size :float)) 0)
+        (gl:vertex-attrib-pointer 0 3 :float 0 (* 5 (cffi:foreign-type-size :float)) 0)
         (gl:enable-vertex-attrib-array 1)
-        (gl:vertex-attrib-pointer 1 3 :float 0 (* 8 (cffi:foreign-type-size :float)) (* 3 (cffi:foreign-type-size :float)))
-        (gl:enable-vertex-attrib-array 2)
-        (gl:vertex-attrib-pointer 2 2 :float 0 (* 8 (cffi:foreign-type-size :float)) (* 6 (cffi:foreign-type-size :float)))
+        (gl:vertex-attrib-pointer 1 2 :float 0 (* 5 (cffi:foreign-type-size :float)) (* 3 (cffi:foreign-type-size :float)))
 
         (gl:bind-vertex-array 0)
         (gl:bind-buffer :array-buffer 0)
