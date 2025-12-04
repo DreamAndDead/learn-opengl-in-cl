@@ -23,6 +23,9 @@
 (defparameter *camera-front* (kit.glm:vec 0.0 0.0 -1.0))
 (defparameter *camera-up* (kit.glm:vec 0.0 1.0 0.0))
 (defparameter *camera-speed* 1.0)
+(defparameter *camera-yaw* -90.0)
+(defparameter *camera-pitch* 0.0)
+(defparameter *camera-fov* 45.0)
 
 (defclass shader ()
   ((program-id :type unsigned-int :initarg :program-id :reader program-id)))
@@ -86,6 +89,11 @@
 
     (make-instance 'shader :program-id shader-program-id)))
 
+(defun cal-camera-front (yaw pitch)
+  (let ((x (* (cos (kit.glm:deg-to-rad yaw)) (cos (kit.glm:deg-to-rad pitch))))
+        (y (sin (kit.glm:deg-to-rad pitch)))
+        (z (* (sin (kit.glm:deg-to-rad yaw)) (cos (kit.glm:deg-to-rad pitch)))))
+    (kit.glm:normalize (kit.glm:vec x y z))))
 
 (defun draw ()
   (gl:clear-color 0.0 1.0 1.0 1.0)
@@ -95,11 +103,12 @@
   (use *shader*)
 
   (let ((view (kit.glm:identity-matrix))
-        (proj (kit.glm:identity-matrix)))
+        (proj (kit.glm:identity-matrix))
+        (*camera-front* (cal-camera-front *camera-yaw* *camera-pitch*)))
     (setf view (kit.glm:look-at *camera-pos*
                                 (kit.glm:vec+ *camera-pos* *camera-front*)
                                 *camera-up*))
-    (setf proj (kit.glm:perspective-matrix 45.0 (float (/ *width* *height*)) 0.1 100.0))
+    (setf proj (kit.glm:perspective-matrix (kit.glm:deg-to-rad *camera-fov*) (float (/ *width* *height*)) 0.1 100.0))
     (set-mat4fv *shader* "view" view)
     (set-mat4fv *shader* "proj" proj))
 
@@ -264,7 +273,8 @@
         (sdl2:with-event-loop (:method :poll)
           (:keydown (:keysym keysym)
                     (let ((scancode (sdl2:scancode-value keysym))
-                          (dt (float (/ 33 1000))))
+                          (dt (float (/ 33 1000)))
+                          (*camera-front* (cal-camera-front *camera-yaw* *camera-pitch*)))
                       (cond
                         ((sdl2:scancode= scancode :scancode-w)
                          (setf *camera-pos* (kit.glm:vec+ *camera-pos*
@@ -283,8 +293,20 @@
                                (kit.glm:vec+ *camera-pos*
                                              (kit.glm:vec*
                                               (kit.glm:normalize (kit.glm:cross-product *camera-front* *camera-up*))
-                                              (* dt *camera-speed*)))))
-                        )))
+                                              (* dt *camera-speed*))))))))
+          (:mousemotion (:xrel x-offset :yrel y-offset)
+                        (incf *camera-yaw* x-offset)
+                        (incf *camera-pitch* (- y-offset))
+                        (if (> *camera-pitch* 89.0)
+                            (setf *camera-pitch* 89.0))
+                        (if (< *camera-pitch* -89.0)
+                            (setf *camera-pitch* -89.0)))
+          (:mousewheel (:y y)
+                       (decf *camera-fov* y)
+                       (if (< *camera-fov* 1.0)
+                           (setf *camera-fov* 1.0))
+                       (if (> *camera-fov* 60.0)
+                           (setf *camera-fov* 60.0)))
           (:idle ()
                  (draw)
 
