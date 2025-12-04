@@ -10,8 +10,9 @@ first, install
 then, launch
 
 #+begin_src
-$ cd learn-opengl-in-cl
-$ sbcl --load getting-started/hello-window.lisp
+  $ git clone https://github.com/DreamAndDead/learn-opengl-in-cl.git
+  $ cd learn-opengl-in-cl
+  $ sbcl --load getting-started/hello-window.lisp
 #+end_src
 
 ** tested on

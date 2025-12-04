@@ -2,3 +2,4 @@ ql cl-opengl
 ql cl-sdl2
 ql cl-sdl2-image
 ql sb-cga
+ql glkit
