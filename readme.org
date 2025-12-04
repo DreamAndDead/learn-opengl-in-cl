@@ -1,4 +1,24 @@
 * [[https://learnopengl.com/][learnopengl.com]] in common lisp
+** run
+
+first, install
+- sbcl
+- quicklisp
+- sdl2
+- sdl2-image
+  
+then, launch
+
+#+begin_src
+$ cd learn-opengl-in-cl
+$ sbcl --load getting-started/hello-window.lisp
+#+end_src
+
+** tested on
+
+- my machine
+  - Gentoo Linux x86_64
+  - sbcl 2.5.4
 
 ** inspired by
 
