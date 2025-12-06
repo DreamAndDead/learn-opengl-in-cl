@@ -1,7 +1,7 @@
 * [[https://learnopengl.com/][learnopengl.com]] in common lisp
 ** run
 
-first, install
+install
 - sbcl
 - quicklisp
 - sdl2
@@ -24,6 +24,7 @@ then, launch
 ** todo
 
 - [ ] glut instead of sdl?
+- [ ] shader live coding
 
 ** inspired by
 
