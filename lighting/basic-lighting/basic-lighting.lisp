@@ -20,7 +20,7 @@
 (defvar *camera* nil)
 
 (defparameter *light-color* '(1.0 1.0 1.0))
-(defparameter *light-pos* '(1.0 1.0 1.5))
+(defparameter *light-pos* '(1.2 1.0 2.0))
 (defparameter *object-color* '(1.0 0.5 0.31))
 
 (defclass camera ()
@@ -174,6 +174,8 @@
   (set-uniformf *shader* "lightColor" (first *light-color*) (second *light-color*) (third *light-color*))
   (set-uniformf *shader* "lightPos" (first *light-pos*) (second *light-pos*) (third *light-pos*))
   (set-uniformf *shader* "objectColor" (first *object-color*) (second *object-color*) (third *object-color*))
+  (let ((pos (pos *camera*)))
+    (set-uniformf *shader* "viewPos" (aref pos 0) (aref pos 1) (aref pos 2)))
 
   (gl:bind-vertex-array *vao*)
   (let ((model (kit.glm:identity-matrix)))
@@ -201,6 +203,12 @@
     (set-mat4fv *shader-light* "model" model)
     (gl:draw-arrays :triangles 0 36)))
 
+(defun set-shader ()
+  (setf *shader* (make-shader "lighting/basic-lighting/shader.vert"
+                              "lighting/basic-lighting/shader.frag"))
+  (setf *shader-light* (make-shader "lighting/basic-lighting/light.vert"
+                                    "lighting/basic-lighting/light.frag")))
+
 (defun main()
   (sdl2:with-init (:everything)
     (progn
@@ -219,10 +227,7 @@
       (sdl2:with-gl-context (gl-context win)
         (sdl2:gl-make-current win gl-context)
 
-        (setf *shader* (make-shader "lighting/basic-lighting/shader.vert"
-                                    "lighting/basic-lighting/shader.frag"))
-        (setf *shader-light* (make-shader "lighting/basic-lighting/light.vert"
-                                          "lighting/basic-lighting/light.frag"))
+        (set-shader)
 
         (setf *camera* (make-instance 'camera
                                       :pos (kit.glm:vec 0.0 0.0 3.0)
@@ -342,6 +347,4 @@
           (gl:delete-buffers (list *vbo*))
           (setf *vbo* nil)
           (gl:free-gl-array *gl-triangle*)
-          (gl:free-gl-array *gl-triangle-indices*)
-          (setf *gl-triangle* nil
-                *gl-triangle-indices* nil))))))
+          (setf *gl-triangle* nil))))))
