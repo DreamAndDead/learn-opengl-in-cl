@@ -20,8 +20,7 @@
 (defvar *camera* nil)
 
 (defparameter *light-color* '(1.0 1.0 1.0))
-(defparameter *light-pos* '(1.2 1.0 2.0))
-(defparameter *object-color* '(1.0 0.5 0.31))
+(defparameter *light-pos* '(1.2 0.0 0.0))
 
 (defclass camera ()
   ((pos :type kit.glm:vec3 :initarg :pos :accessor pos)
@@ -165,6 +164,12 @@
 
     (make-instance 'shader :program-id shader-program-id)))
 
+(defun move-light ()
+  (let ((time (float (/ (sdl2:get-ticks) 1000))))
+    (setf (first *light-pos*) (sin (* 1 time)))
+    (setf (second *light-pos*) (cos (* 1 time)))
+    (setf (third *light-pos*) 1.0)))
+
 (defun draw ()
   (gl:clear-color 0.0 0.0 0.0 1.0)
   (gl:enable :depth-test)
@@ -179,15 +184,20 @@
     (set-mat4fv *shader* "view" view)
     (set-mat4fv *shader* "proj" proj))
 
-  (set-uniformf *shader* "lightColor" (first *light-color*) (second *light-color*) (third *light-color*))
   (set-uniformf *shader* "lightPos" (first *light-pos*) (second *light-pos*) (third *light-pos*))
   (let ((pos (pos *camera*)))
     (set-uniformf *shader* "viewPos" (aref pos 0) (aref pos 1) (aref pos 2)))
 
-  (set-uniformf *shader* "material.ambient" 1.0 0.5 0.31)
-  (set-uniformf *shader* "material.diffuse" 1.0 0.5 0.31)
-  (set-uniformf *shader* "material.specular" 0.5 0.5 0.5)
-  (set-uniformf *shader* "material.shininess" 32.0)
+  (set-uniformf *shader* "light.ambient" 0.2 0.2 0.2)
+  (set-uniformf *shader* "light.diffuse" 0.5 0.5 0.5)
+  (set-uniformf *shader* "light.specular" 1.0 1.0 1.0)
+
+  ;; emerald
+  ;; http://devernay.free.fr/cours/opengl/materials.html
+  (set-uniformf *shader* "material.ambient" 0.0215 0.1745 0.0215)
+  (set-uniformf *shader* "material.diffuse" 0.07568 0.61424 0.07568)
+  (set-uniformf *shader* "material.specular" 0.633 0.727811 0.633)
+  (set-uniformf *shader* "material.shininess" (* 0.6 128))
 
   (gl:bind-vertex-array *vao*)
   (let ((model (kit.glm:identity-matrix)))
@@ -205,7 +215,6 @@
     (set-mat4fv *shader-light* "proj" proj))
 
   (set-uniformf *shader-light* "lightColor" (first *light-color*) (second *light-color*) (third *light-color*))
-  (set-uniformf *shader-light* "objectColor" (first *object-color*) (second *object-color*) (third *object-color*))
   
   (gl:bind-vertex-array *vao-light*)
   (let ((model (kit.glm:matrix* (kit.glm:translate* (first *light-pos*)
@@ -355,6 +364,7 @@
                         ((sdl2:scancode= scancode :scancode-o)
                          (adjust-camera-fov 1)))))
           (:idle ()
+                 (move-light)
                  (draw)
                  (sdl2:delay 33)
                  (sdl2:gl-swap-window win))
