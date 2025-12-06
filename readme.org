@@ -21,6 +21,10 @@ then, launch
   - Gentoo Linux x86_64
   - sbcl 2.5.4
 
+** todo
+
+- [ ] glut instead of sdl?
+
 ** inspired by
 
 - [[https://gist.github.com/realark/d88866fa2fe2459f59e53620931ad155][gist realark/ctriangle.cpp]]
