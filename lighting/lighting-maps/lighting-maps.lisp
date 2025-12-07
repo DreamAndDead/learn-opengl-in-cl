@@ -18,6 +18,7 @@
 (defvar *vbo* nil)
 
 (defvar *diffuse-texture* nil)
+(defvar *specular-texture* nil)
 
 (defvar *camera* nil)
 
@@ -197,10 +198,9 @@
   (gl:active-texture :texture0)
   (gl:bind-texture :texture-2d *diffuse-texture*)
   (gl:active-texture :texture1)
-  (gl:bind-texture :texture-2d *diffuse-texture*)
+  (gl:bind-texture :texture-2d *specular-texture*)
 
-  (set-uniformf *shader* "material.specular" 0.633 0.727811 0.633)
-  (set-uniformf *shader* "material.shininess" (* 0.6 128))
+  (set-uniformf *shader* "material.shininess" (* 0.1 128))
 
   (gl:bind-vertex-array *vao*)
   (let ((model (kit.glm:identity-matrix)))
@@ -323,9 +323,9 @@
         (gl:enable-vertex-attrib-array 0)
         (gl:vertex-attrib-pointer 0 3 :float 0 (* 8 (cffi:foreign-type-size :float)) 0)
         (gl:enable-vertex-attrib-array 1)
-        (gl:vertex-attrib-pointer 1 3 :float 0 (* 8 (cffi:foreign-type-size :float)) 12)
+        (gl:vertex-attrib-pointer 1 3 :float 0 (* 8 (cffi:foreign-type-size :float)) (* 3 (cffi:foreign-type-size :float)))
         (gl:enable-vertex-attrib-array 2)
-        (gl:vertex-attrib-pointer 2 2 :float 0 (* 8 (cffi:foreign-type-size :float)) 24)
+        (gl:vertex-attrib-pointer 2 2 :float 0 (* 8 (cffi:foreign-type-size :float)) (* 6 (cffi:foreign-type-size :float)))
 
         (gl:bind-vertex-array *vao-light*)
         (gl:bind-buffer :array-buffer *vbo*)
@@ -352,10 +352,24 @@
             (gl:generate-mipmap :texture-2d)
             (sdl2:free-surface image)))
 
+        (progn
+          (setf *specular-texture* (gl:gen-texture))
+          (gl:bind-texture :texture-2d *specular-texture*)
+          (gl:tex-parameter :texture-2d :texture-wrap-s :repeat)
+          (gl:tex-parameter :texture-2d :texture-wrap-t :repeat)
+          (gl:tex-parameter :texture-2d :texture-min-filter :linear)
+          (gl:tex-parameter :texture-2d :texture-mag-filter :linear)
+
+          (let ((image (sdl2-image:load-png-rw "./assets/container2_specular.png")))
+            (gl:tex-image-2d :texture-2d 0 :rgb
+                             (sdl2:surface-width image) (sdl2:surface-height image)
+                             0 :rgba :unsigned-byte (sdl2:surface-pixels image))
+            (gl:generate-mipmap :texture-2d)
+            (sdl2:free-surface image)))
           
         (gl:viewport 0 0 *width* *height*)
         (set-uniformi *shader* "material.diffuse" 0)
-        (set-uniformi *shader* "test" 1)
+        (set-uniformi *shader* "material.specular" 1)
 
         (sdl2:with-event-loop (:method :poll)
           (:keydown (:keysym keysym)
