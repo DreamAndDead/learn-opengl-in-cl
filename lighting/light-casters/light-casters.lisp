@@ -169,8 +169,8 @@
 
 (defun move-light ()
   (let ((time (float (/ (sdl2:get-ticks) 1000))))
-    (setf (first *light-pos*) (sin (* 1 time)))
-    (setf (second *light-pos*) (cos (* 1 time)))
+    (setf (first *light-pos*) (* 1.0  (sin (* 1 time))))
+    (setf (second *light-pos*) (* 1.0 (cos (* 1 time))))
     (setf (third *light-pos*) 1.0)))
 
 (defun draw ()
@@ -187,24 +187,29 @@
     (set-mat4fv *shader* "view" view)
     (set-mat4fv *shader* "proj" proj))
 
-  (set-uniformf *shader* "light.direction" -0.2 -1.0 -0.3)
   (let ((pos (pos *camera*)))
     (set-uniformf *shader* "viewPos" (aref pos 0) (aref pos 1) (aref pos 2)))
+
+  (set-uniformf *shader* "light.position" (first *light-pos*) (second *light-pos*) (third *light-pos*))
 
   (set-uniformf *shader* "light.ambient" 0.2 0.2 0.2)
   (set-uniformf *shader* "light.diffuse" 0.5 0.5 0.5)
   (set-uniformf *shader* "light.specular" 1.0 1.0 1.0)
 
+  (set-uniformf *shader* "light.constant" 1.0)
+  (set-uniformf *shader* "light.linear" 0.09)
+  (set-uniformf *shader* "light.quadratic" 0.0032)
+
   (gl:active-texture :texture0)
   (gl:bind-texture :texture-2d *diffuse-texture*)
   (gl:active-texture :texture1)
   (gl:bind-texture :texture-2d *specular-texture*)
-
   (set-uniformf *shader* "material.shininess" (* 0.1 128))
 
   (gl:bind-vertex-array *vao*)
 
-  (let ((positions '(( 0.0  0.0  0.0)
+  (let ((positions '(
+                     ( 0.0  0.0  0.0)
                      ( 2.0  5.0 -15.0)
                      (-1.5 -2.2 -2.5)
                      (-3.8 -2.0 -12.3)
@@ -215,7 +220,7 @@
                      ( 1.5  0.2 -1.5)
                      (-1.3  1.0 -1.5))))
     (loop for p in positions
-          for i from 0 to (length positions)
+          for i from 0 below (length positions)
           do
              (let ((model (kit.glm:matrix*
                            (kit.glm:translate* (first p) (second p) (third p))
