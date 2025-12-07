@@ -150,7 +150,7 @@
           (gl:tex-parameter :texture-2d :texture-min-filter :linear)
           (gl:tex-parameter :texture-2d :texture-mag-filter :linear)
 
-          (let ((image (sdl2-image:load-jpg-rw "./getting-started/textures/wall.jpg")))
+          (let ((image (sdl2-image:load-jpg-rw "./assets/wall.jpg")))
             (gl:tex-image-2d :texture-2d 0 :rgb
                              (sdl2:surface-width image) (sdl2:surface-height image)
                              0 :rgb :unsigned-byte (sdl2:surface-pixels image))
@@ -165,7 +165,7 @@
           (gl:tex-parameter :texture-2d :texture-min-filter :linear)
           (gl:tex-parameter :texture-2d :texture-mag-filter :linear)
 
-          (let ((image (sdl2-image:load-png-rw "./getting-started/textures/awesomeface.png")))
+          (let ((image (sdl2-image:load-png-rw "./assets/awesomeface.png")))
             (gl:tex-image-2d :texture-2d 0 :rgb
                              (sdl2:surface-width image) (sdl2:surface-height image)
                              0 :rgba :unsigned-byte (sdl2:surface-pixels image))
