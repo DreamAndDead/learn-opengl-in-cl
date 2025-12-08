@@ -191,6 +191,9 @@
     (set-uniformf *shader* "viewPos" (aref pos 0) (aref pos 1) (aref pos 2)))
 
   (set-uniformf *shader* "light.position" (first *light-pos*) (second *light-pos*) (third *light-pos*))
+  (set-uniformf *shader* "light.direction" 0.0 0.0 -1.0)
+  (set-uniformf *shader* "light.cutoff" (cos (kit.glm:deg-to-rad 15.5)))
+  (set-uniformf *shader* "light.outerCutoff" (cos (kit.glm:deg-to-rad 32.5)))
 
   (set-uniformf *shader* "light.ambient" 0.2 0.2 0.2)
   (set-uniformf *shader* "light.diffuse" 0.5 0.5 0.5)
