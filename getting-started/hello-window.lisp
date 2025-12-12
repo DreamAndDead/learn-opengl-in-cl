@@ -1,8 +1,8 @@
 ;; https://learnopengl.com/Getting-started/Hello-Window
 (in-package :cl-user)
 
-(require :sdl2)
-(require :cl-opengl)
+(ql:quickload :sdl2)
+(ql:quickload :cl-opengl)
 
 (defun main ()
   (sdl2:with-init (:everything)

@@ -1,10 +1,13 @@
 ;; https://learnopengl.com/Model-Loading/Assimp
+;; https://learnopengl.com/Model-Loading/Mesh
+;; https://learnopengl.com/Model-Loading/Model
 (in-package :cl-user)
 
 (ql:quickload :sdl2)
 (ql:quickload :sdl2-image)
 (ql:quickload :cl-opengl)
 (ql:quickload :glkit)
+(ql:quickload :classimp)
 
 (defparameter *width* 960)
 (defparameter *height* 540)
@@ -267,10 +270,183 @@
     (gl:draw-arrays :triangles 0 36)))
 
 (defun set-shader ()
-  (setf *shader* (make-shader "lighting/multiple-lights/shader.vert"
-                              "lighting/multiple-lights/shader.frag"))
-  (setf *shader-light* (make-shader "lighting/multiple-lights/light.vert"
-                                    "lighting/multiple-lights/light.frag")))
+  (setf *shader* (make-shader "lighting/assimp/shader.vert"
+                              "lighting/assimp/shader.frag"))
+  (setf *shader-light* (make-shader "lighting/assimp/light.vert"
+                                    "lighting/assimp/light.frag")))
+
+(cffi:defcstruct vertex
+  (position :float :count 3)
+  (normal :float :count 3)
+  (tex-coords :float :count 2)
+  (tangent :float :count 3)
+  (bitangent :float :count 3))
+
+(defclass texture ()
+  ((id :accessor id :initarg :id)
+   (type :accessor texture-type :initarg :type)))
+
+(defclass mesh ()
+  ((vertices :accessor vertices :initarg :vertices)
+   (indices :accessor indices :initarg :indices)
+   (textures :accessor textures :initarg :textures)
+   (vao :accessor vao)
+   (buffers :accessor buffers :initform nil)))
+
+(defclass model ()
+  ((meshes :initform nil :accessor meshes)
+   (base-directory :initarg :base-directory :accessor base-directory)))
+
+(defun draw-mesh (mesh shader)
+  (let ((diffuse# 0)
+        (specular# 0)
+        (normal# 0)
+        (height# 0))
+    (loop for i from 0
+          for tex in (textures mesh)
+          for tex-type = (texture-type tex)
+          for number = (case tex-type
+                         (:texture_diffuse
+                          (incf diffuse#))
+                         (:texture_specular
+                          (incf specular#))
+                         (:texture_normal
+                          (incf normal#))
+                         (:texture_height
+                          (incf height#)))
+          do (gl:active-texture i)
+             (gl:uniformi (gl:get-uniform-location
+                           shader
+                           (format nil "~(~a~a~)" tex-type number))
+                          i)
+             (gl:bind-texture :texture-2d (id tex))
+          )
+    ;; TODO use shader?
+    (gl:bind-vertex-array (vao mesh))
+    (%gl:draw-elements :triangles (length (indices mesh)) :unsigned-int 0)
+    (gl:bind-vertex-array 0)
+    (gl:active-texture :texture0)))
+
+(defun draw-model (model shader)
+  (loop for mesh in (meshes model)
+        do (draw-mesh mesh shader)))
+
+(defun load-texture (file &key (wrap-s :repeat) (wrap-t :repeat)
+                            (min :linear-mipmap-linear)
+                            (mag :linear))
+  (let ((tex-id (gl:gen-texture)))
+    (gl:bind-texture :texture-2d tex-id)
+    (gl:tex-parameter :texture-2d :texture-wrap-s wrap-s)
+    (gl:tex-parameter :texture-2d :texture-wrap-t wrap-t)
+    (gl:tex-parameter :texture-2d :texture-min-filter min)
+    (gl:tex-parameter :texture-2d :texture-mag-filter mag)
+
+    (let* ((type (pathname-type file))
+           (image (case type
+                    ("png" (sdl2-image:load-png-rw file))
+                    ("jpg" (sdl2-image:load-jpg-rw file))
+                    (otherwise (format t "Error: load texture unsupported format ~a~%" type))))
+           (pixel-format (case type
+                           ("png" :rgba)
+                           ("jpg" :rgb)
+                           (otherwise :rgb))))
+      (gl:tex-image-2d :texture-2d 0 :rgb
+                       (sdl2:surface-width image) (sdl2:surface-height image)
+                       0 pixel-format :unsigned-byte (sdl2:surface-pixels image))
+      (gl:generate-mipmap :texture-2d)
+      (sdl2:free-surface image))
+    (gl:bind-texture :texture-2d 0)
+    tex-id))
+
+(defvar *texture-cache* nil)
+
+(defun load-texture-cached (file)
+  (cond
+    ((and (boundp '*texture-cache*)
+          (gethash file *texture-cache*)))
+    ((boundp '*texture-cache*)
+     (setf (gethash file *texture-cache*)
+           (load-texture file)))
+    (t
+     ;; no cache way
+     (load-texture file))))
+
+(defun load-material-textures (model material type type-name)
+  (loop with files = (gethash "$tex.file" material)
+        ;; type, channel, name
+        for (nil nil file) in (remove type files :key 'car :test-not 'eql)
+        collect (make-instance 'texture
+                               :type type-name
+                               :id (load-texture-cached
+                                    (merge-pathnames file (base-directory model))))))
+
+;; TODO
+(defun setup-mesh (mesh)
+  (let ((vbo (gl:gen-buffer))
+        (ebo (gl:gen-buffer))
+        (vao (gl:gen-vertex-array))
+        (vertex-size (cffi:foreign-type-size '(:struct vertex))))
+    (gl:bind-vertex-array vao)
+
+    (gl:bind-buffer :element-array-buffer ebo)
+    ;; TODO pause here
+    (static-vectors:with-static-vector )
+    )
+  )
+
+(defun process-mesh (model mesh scene)
+  (setup-mesh
+   (make-instance
+    'mesh
+    :vertices
+    (loop for i below (length (ai:vertices mesh))
+          for vertex = (aref (ai:vertices mesh) i)
+          for normal = (aref (ai:normals mesh) i)
+          for tangent = (when (ai:tangents mesh)
+                          (aref (ai:tangents mesh) i))
+          for bitangent = (when (ai:bitangents mesh)
+                            (aref (ai:bitangents mesh) i))
+          for tex-coords = (unless (zerop (length (ai:texture-coords mesh)))
+                             (subseq
+                              (aref (aref (ai:texture-coords mesh) 0) i)
+                              0 2))
+          collect (list vertex normal tex-coords tangent bitangent))
+    :indices
+    (loop for face across (ai:faces mesh)
+          collect (aref face 0)
+          collect (aref face 1)
+          collect (aref face 2))
+    :textures
+    (when (plusp (ai:material-index mesh))
+      (let ((material (aref (ai:materials scene) (ai:material-index mesh))))
+        (append
+         (load-material-textures model material :ai-texture-type-diffuse
+                                 :texture_diffuse)
+         (load-material-textures model material :ai-texture-type-specular
+                                 :texture_specular)))))))
+
+(defun process-node (model node scene)
+  (loop for mesh-index across (classimp:meshes node)
+        for mesh = (aref (classimp:meshes scene) mesh-index)
+        do (push (process-mesh model mesh scene) (meshes model)))
+  (loop for child across (classimp:children node)
+        do (process-node model child scene)))
+
+(defun load-model (path)
+  (classimp:with-log-to-stdout ()
+    (let ((scene (classimp:import-into-lisp
+                  path :processing-flags '(:ai-process-triangulate
+                                           :ai-process-flip-u-vs)))
+          (model (make-instance 'model)))
+      (unless (and scene
+                   (not (classimp:scene-incomplete-p scene))
+                   (classimp:root-node scene))
+        (format t "Error: Assimp ~a~%" (%ai:ai-get-error-string)))
+      (setf (base-directory model) (uiop:pathname-directory-pathname path))
+      (process-node model (classimp:root-node scene) scene)
+      (setf (meshes model) (reverse (meshes model)))
+      model)))
+
 
 (defun main()
   (sdl2:with-init (:everything)

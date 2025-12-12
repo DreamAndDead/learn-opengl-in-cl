@@ -1,4 +1,5 @@
 * [[https://learnopengl.com/][learnopengl.com]] in common lisp
+
 ** run
 
 install
@@ -12,14 +13,14 @@ then, launch
 #+begin_src
   $ git clone https://github.com/DreamAndDead/learn-opengl-in-cl.git
   $ cd learn-opengl-in-cl
-  $ sbcl --load getting-started/hello-window.lisp
+  $ sbcl --load getting-started/hello-window.lisp --eval '(main)'
 #+end_src
 
 ** tested on
 
 - my machine
-  - Gentoo Linux x86_64
-  - sbcl 2.5.4
+  - Freebsd 15.0 AMD64 
+  - sbcl 2.5.7
 
 ** todo
 
