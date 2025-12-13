@@ -8,6 +8,7 @@
 (ql:quickload :cl-opengl)
 (ql:quickload :glkit)
 (ql:quickload :classimp)
+(ql:quickload :static-vectors)
 
 (defparameter *width* 960)
 (defparameter *height* 540)
@@ -269,11 +270,6 @@
     (set-mat4fv *shader-light* "model" model)
     (gl:draw-arrays :triangles 0 36)))
 
-(defun set-shader ()
-  (setf *shader* (make-shader "lighting/assimp/shader.vert"
-                              "lighting/assimp/shader.frag"))
-  (setf *shader-light* (make-shader "lighting/assimp/light.vert"
-                                    "lighting/assimp/light.frag")))
 
 (cffi:defcstruct vertex
   (position :float :count 3)
@@ -380,7 +376,6 @@
                                :id (load-texture-cached
                                     (merge-pathnames file (base-directory model))))))
 
-;; TODO
 (defun setup-mesh (mesh)
   (let ((vbo (gl:gen-buffer))
         (ebo (gl:gen-buffer))
@@ -389,10 +384,55 @@
     (gl:bind-vertex-array vao)
 
     (gl:bind-buffer :element-array-buffer ebo)
-    ;; TODO pause here
-    (static-vectors:with-static-vector )
-    )
-  )
+    (static-vectors:with-static-vector (sv (length (indices mesh))
+                                           :element-type '(unsigned-byte 32))
+      (replace sv (indices mesh))
+      (%gl:buffer-data :element-array-buffer
+                       (* (length sv)
+                          (cffi:foreign-type-size :unsigned-int))
+                       (static-vectors:static-vector-pointer sv)
+                       :static-draw))
+
+    (gl:bind-buffer :array-buffer vbo)
+    (cffi:with-foreign-object (buffers '(:struct vertex) (length (vertices mesh)))
+      (loop for (position normal tex-coords tangent bitangent) in (vertices mesh)
+            for i from 0
+            for buffer = (cffi:mem-aref buffers '(:struct vertex) i)
+            do (macrolet ((copy (var/slot count)
+                            `(when ,var/slot
+                               (cffi:lisp-array-to-foreign
+                                ,var/slot
+                                (cffi:foreign-slot-pointer buffer
+                                                           '(:struct vertex)
+                                                           ',var/slot)
+                                '(:array :float ,count)))))
+                 (copy position 3)
+                 (copy normal 3)
+                 (copy tex-coords 2)
+                 (copy tangent 3)
+                 (copy bitangent 3)))
+      (%gl:buffer-data :array-buffer
+                       (* (length (vertices mesh)) vertex-size)
+                       buffers :static-draw))
+
+    (macrolet ((offset (member)
+                 `(cffi:foreign-slot-offset '(:struct vertex) ',member)))
+      (gl:enable-vertex-attrib-array 0)
+      (gl:vertex-attrib-pointer 0 3 :float nil vertex-size (offset position))
+      (gl:enable-vertex-attrib-array 1)
+      (gl:vertex-attrib-pointer 1 3 :float nil vertex-size (offset normal))
+      (gl:enable-vertex-attrib-array 2)
+      (gl:vertex-attrib-pointer 2 2 :float nil vertex-size (offset tex-coords))
+      (gl:enable-vertex-attrib-array 3)
+      (gl:vertex-attrib-pointer 3 3 :float nil vertex-size (offset tangent))
+      (gl:enable-vertex-attrib-array 4)
+      (gl:vertex-attrib-pointer 4 3 :float nil vertex-size (offset bitangent)))
+
+    (gl:bind-buffer :array-buffer 0)
+    (gl:bind-vertex-array 0)
+
+    (setf (buffers mesh) (list vbo ebo)
+          (vao mesh) vao)))
 
 (defun process-mesh (model mesh scene)
   (setup-mesh
@@ -466,7 +506,10 @@
       (sdl2:with-gl-context (gl-context win)
         (sdl2:gl-make-current win gl-context)
 
-        (set-shader)
+        (setf *shader* (make-shader "lighting/assimp/shader.vert"
+                                    "lighting/assimp/shader.frag"))
+        (setf *shader-light* (make-shader "lighting/assimp/light.vert"
+                                          "lighting/assimp/light.frag"))
 
         (setf *camera* (make-instance 'camera
                                       :pos (kit.glm:vec 0.0 0.0 3.0)
