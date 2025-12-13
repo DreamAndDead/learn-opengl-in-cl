@@ -13,18 +13,9 @@
 (defparameter *width* 960)
 (defparameter *height* 540)
 
-(defvar *gl-triangle* nil)
-
-(defvar *shader* nil)
-(defvar *shader-light* nil)
-(defvar *vao* nil)
-(defvar *vao-light* nil)
-(defvar *vbo* nil)
-
-(defvar *diffuse-texture* nil)
-(defvar *specular-texture* nil)
-
 (defvar *camera* nil)
+(defvar *shader* nil)
+(defvar *model* nil)
 
 (defparameter *light-color* '(1.0 1.0 1.0))
 (defparameter *light-pos* '(1.2 0.0 0.0))
@@ -100,6 +91,7 @@
         (setf fov 60.0))
     (setf (fov *camera*) fov)))
 
+
 (defclass shader ()
   ((program-id :type unsigned-int :initarg :program-id :reader program-id)))
 
@@ -128,6 +120,7 @@
   (use shader)
   (let ((loc (gl:get-uniform-location (program-id shader) name)))
     (gl:uniform-matrix-4fv loc mat transpose)))
+
 
 (defun assert-no-shader-errors (shader-id)
   (let ((success (cffi:foreign-alloc :int :initial-element 0)))
@@ -171,104 +164,6 @@
 
     (make-instance 'shader :program-id shader-program-id)))
 
-(defun move-light ()
-  (let ((time (float (/ (sdl2:get-ticks) 1000))))
-    (setf (first *light-pos*) (* 1.0  (sin (* 1 time))))
-    (setf (second *light-pos*) (* 1.0 (cos (* 1 time))))
-    (setf (third *light-pos*) 1.0)))
-
-(defun draw ()
-  (gl:clear-color 0.0 0.0 0.0 1.0)
-  (gl:enable :depth-test)
-  (gl:clear :color-buffer-bit :depth-buffer-bit)
-
-  (use *shader*)
-
-  (let ((view (kit.glm:identity-matrix))
-        (proj (kit.glm:identity-matrix)))
-    (setf view (get-view-mat))
-    (setf proj (kit.glm:perspective-matrix (kit.glm:deg-to-rad (fov *camera*)) (float (/ *width* *height*)) 0.1 100.0))
-    (set-mat4fv *shader* "view" view)
-    (set-mat4fv *shader* "proj" proj))
-
-  (let ((pos (pos *camera*)))
-    (set-uniformf *shader* "viewPos" (aref pos 0) (aref pos 1) (aref pos 2)))
-
-  (set-uniformf *shader* "dirLight.direction" 0.0 -1.0 0.0)
-  (set-uniformf *shader* "dirLight.ambient" 0.2 0.2 0.2)
-  (set-uniformf *shader* "dirLight.diffuse" 0.5 0.5 0.5)
-  (set-uniformf *shader* "dirLight.specular" 1.0 1.0 1.0)
-
-
-  (set-uniformf *shader* "pointLights[0].position" (first *light-pos*) (second *light-pos*) (third *light-pos*))
-  (set-uniformf *shader* "pointLights[0].ambient" 0.1 0.1 0.1)
-  (set-uniformf *shader* "pointLights[0].diffuse" 0.5 0.5 0.5)
-  (set-uniformf *shader* "pointLights[0].specular" 1.0 1.0 1.0)
-  (set-uniformf *shader* "pointLights[0].constant" 1.0)
-  (set-uniformf *shader* "pointLights[0].linear" 0.09)
-  (set-uniformf *shader* "pointLights[0].quadratic" 0.0032)
-
-
-  (set-uniformf *shader* "spotLight.position" (first *light-pos*) (second *light-pos*) (third *light-pos*))
-  (set-uniformf *shader* "spotLight.direction" 0.0 0.0 -1.0)
-  (set-uniformf *shader* "spotLight.cutoff" (cos (kit.glm:deg-to-rad 15.5)))
-  (set-uniformf *shader* "spotLight.outerCutoff" (cos (kit.glm:deg-to-rad 32.5)))
-
-  (set-uniformf *shader* "spotLight.ambient" 0.1 0.1 0.1)
-  (set-uniformf *shader* "spotLight.diffuse" 0.5 0.5 0.5)
-  (set-uniformf *shader* "spotLight.specular" 1.0 1.0 1.0)
-
-  (set-uniformf *shader* "spotLight.constant" 1.0)
-  (set-uniformf *shader* "spotLight.linear" 0.09)
-  (set-uniformf *shader* "spotLight.quadratic" 0.0032)
-
-  (gl:active-texture :texture0)
-  (gl:bind-texture :texture-2d *diffuse-texture*)
-  (gl:active-texture :texture1)
-  (gl:bind-texture :texture-2d *specular-texture*)
-  (set-uniformf *shader* "material.shininess" (* 0.1 128))
-
-  (gl:bind-vertex-array *vao*)
-
-  (let ((positions '(
-                     ( 0.0  0.0  0.0)
-                     ( 2.0  5.0 -15.0)
-                     (-1.5 -2.2 -2.5)
-                     (-3.8 -2.0 -12.3)
-                     ( 2.4 -0.4 -3.5)
-                     (-1.7  3.0 -7.5)
-                     ( 1.3 -2.0 -2.5)
-                     ( 1.5  2.0 -2.5)
-                     ( 1.5  0.2 -1.5)
-                     (-1.3  1.0 -1.5))))
-    (loop for p in positions
-          for i from 0 below (length positions)
-          do
-             (let ((model (kit.glm:matrix*
-                           (kit.glm:translate* (first p) (second p) (third p))
-                           (kit.glm:rotate* (* i 10.0) (* i 10.0) (* i 10.0)))))
-               (set-mat4fv *shader* "model" model)
-               (gl:draw-arrays :triangles 0 36))))
-
-
-  (use *shader-light*)
-
-  (let ((view (kit.glm:identity-matrix))
-        (proj (kit.glm:identity-matrix)))
-    (setf view (get-view-mat))
-    (setf proj (kit.glm:perspective-matrix (kit.glm:deg-to-rad (fov *camera*)) (float (/ *width* *height*)) 0.1 100.0))
-    (set-mat4fv *shader-light* "view" view)
-    (set-mat4fv *shader-light* "proj" proj))
-
-  (set-uniformf *shader-light* "lightColor" (first *light-color*) (second *light-color*) (third *light-color*))
-  
-  (gl:bind-vertex-array *vao-light*)
-  (let ((model (kit.glm:matrix* (kit.glm:translate* (first *light-pos*)
-                                                    (second *light-pos*)
-                                                    (third *light-pos*))
-                                (kit.glm:scale* 0.1 0.1 0.1))))
-    (set-mat4fv *shader-light* "model" model)
-    (gl:draw-arrays :triangles 0 36)))
 
 
 (cffi:defcstruct vertex
@@ -299,8 +194,8 @@
         (normal# 0)
         (height# 0))
     (loop for i from 0
-          for tex in (textures mesh)
-          for tex-type = (texture-type tex)
+          for texture in (textures mesh)
+          for tex-type = (texture-type texture)
           for number = (case tex-type
                          (:texture_diffuse
                           (incf diffuse#))
@@ -310,14 +205,9 @@
                           (incf normal#))
                          (:texture_height
                           (incf height#)))
-          do (gl:active-texture i)
-             (gl:uniformi (gl:get-uniform-location
-                           shader
-                           (format nil "~(~a~a~)" tex-type number))
-                          i)
-             (gl:bind-texture :texture-2d (id tex))
-          )
-    ;; TODO use shader?
+          do (set-uniformi shader (format nil "~(~a~a~)" tex-type number) i)
+             (gl:active-texture i)
+             (gl:bind-texture :texture-2d (id texture)))
     (gl:bind-vertex-array (vao mesh))
     (%gl:draw-elements :triangles (length (indices mesh)) :unsigned-int 0)
     (gl:bind-vertex-array 0)
@@ -326,6 +216,32 @@
 (defun draw-model (model shader)
   (loop for mesh in (meshes model)
         do (draw-mesh mesh shader)))
+
+(defun draw ()
+  (gl:clear-color 1.0 0.0 0.0 1.0)
+  (gl:enable :depth-test)
+  (gl:clear :color-buffer-bit :depth-buffer-bit)
+
+  (use *shader*)
+
+  (let ((view (kit.glm:identity-matrix))
+        (proj (kit.glm:identity-matrix)))
+    (setf view (get-view-mat))
+    (setf proj (kit.glm:perspective-matrix (kit.glm:deg-to-rad (fov *camera*)) (float (/ *width* *height*)) 0.1 100.0))
+    (set-mat4fv *shader* "view" view)
+    (set-mat4fv *shader* "proj" proj))
+
+  (let ((pos (pos *camera*)))
+    (set-uniformf *shader* "viewPos" (aref pos 0) (aref pos 1) (aref pos 2)))
+
+  (set-uniformf *shader* "dirLight.direction" 0.0 -1.0 0.0)
+  (set-uniformf *shader* "dirLight.ambient" 0.2 0.2 0.2)
+  (set-uniformf *shader* "dirLight.diffuse" 0.5 0.5 0.5)
+  (set-uniformf *shader* "dirLight.specular" 1.0 1.0 1.0)
+
+  (set-uniformf *shader* "material.shininess" (* 0.1 128))
+
+  (draw-model *model* *shader*))
 
 (defun load-texture (file &key (wrap-s :repeat) (wrap-t :repeat)
                             (min :linear-mipmap-linear)
@@ -397,7 +313,7 @@
     (cffi:with-foreign-object (buffers '(:struct vertex) (length (vertices mesh)))
       (loop for (position normal tex-coords tangent bitangent) in (vertices mesh)
             for i from 0
-            for buffer = (cffi:mem-aref buffers '(:struct vertex) i)
+            for buffer = (cffi:mem-aptr buffers '(:struct vertex) i)
             do (macrolet ((copy (var/slot count)
                             `(when ,var/slot
                                (cffi:lisp-array-to-foreign
@@ -432,43 +348,43 @@
     (gl:bind-vertex-array 0)
 
     (setf (buffers mesh) (list vbo ebo)
-          (vao mesh) vao)))
+          (vao mesh) vao))
+  mesh)
 
 (defun process-mesh (model mesh scene)
-  (setup-mesh
-   (make-instance
-    'mesh
-    :vertices
-    (loop for i below (length (ai:vertices mesh))
-          for vertex = (aref (ai:vertices mesh) i)
-          for normal = (aref (ai:normals mesh) i)
-          for tangent = (when (ai:tangents mesh)
-                          (aref (ai:tangents mesh) i))
-          for bitangent = (when (ai:bitangents mesh)
-                            (aref (ai:bitangents mesh) i))
-          for tex-coords = (unless (zerop (length (ai:texture-coords mesh)))
-                             (subseq
-                              (aref (aref (ai:texture-coords mesh) 0) i)
-                              0 2))
-          collect (list vertex normal tex-coords tangent bitangent))
-    :indices
-    (loop for face across (ai:faces mesh)
-          collect (aref face 0)
-          collect (aref face 1)
-          collect (aref face 2))
-    :textures
-    (when (plusp (ai:material-index mesh))
-      (let ((material (aref (ai:materials scene) (ai:material-index mesh))))
-        (append
-         (load-material-textures model material :ai-texture-type-diffuse
-                                 :texture_diffuse)
-         (load-material-textures model material :ai-texture-type-specular
-                                 :texture_specular)))))))
+  (make-instance
+   'mesh
+   :vertices
+   (loop for i below (length (ai:vertices mesh))
+         for vertex = (aref (ai:vertices mesh) i)
+         for normal = (aref (ai:normals mesh) i)
+         for tangent = (when (ai:tangents mesh)
+                         (aref (ai:tangents mesh) i))
+         for bitangent = (when (ai:bitangents mesh)
+                           (aref (ai:bitangents mesh) i))
+         for tex-coords = (unless (zerop (length (ai:texture-coords mesh)))
+                            (subseq
+                             (aref (aref (ai:texture-coords mesh) 0) i)
+                             0 2))
+         collect (list vertex normal tex-coords tangent bitangent))
+   :indices
+   (loop for face across (ai:faces mesh)
+         collect (aref face 0)
+         collect (aref face 1)
+         collect (aref face 2))
+   :textures
+   (when (plusp (ai:material-index mesh))
+     (let ((material (aref (ai:materials scene) (ai:material-index mesh))))
+       (append
+        (load-material-textures model material :ai-texture-type-diffuse
+                                :material.diffuse)
+        (load-material-textures model material :ai-texture-type-specular
+                                :material.specular))))))
 
 (defun process-node (model node scene)
   (loop for mesh-index across (classimp:meshes node)
         for mesh = (aref (classimp:meshes scene) mesh-index)
-        do (push (process-mesh model mesh scene) (meshes model)))
+        do (push (setup-mesh (process-mesh model mesh scene)) (meshes model)))
   (loop for child across (classimp:children node)
         do (process-node model child scene)))
 
@@ -506,11 +422,6 @@
       (sdl2:with-gl-context (gl-context win)
         (sdl2:gl-make-current win gl-context)
 
-        (setf *shader* (make-shader "lighting/assimp/shader.vert"
-                                    "lighting/assimp/shader.frag"))
-        (setf *shader-light* (make-shader "lighting/assimp/light.vert"
-                                          "lighting/assimp/light.frag"))
-
         (setf *camera* (make-instance 'camera
                                       :pos (kit.glm:vec 0.0 0.0 3.0)
                                       :front (kit.glm:vec 0.0 0.0 -1.0)
@@ -520,114 +431,13 @@
                                       :pitch 0.0
                                       :fov 45.0))
 
-        (let ((vertices #(
-                          -0.5 -0.5 -0.5  0.0  0.0 -1.0  0.0 0.0
-                          0.5 -0.5 -0.5  0.0  0.0 -1.0  1.0 0.0
-                          0.5  0.5 -0.5  0.0  0.0 -1.0  1.0 1.0
-                          0.5  0.5 -0.5  0.0  0.0 -1.0  1.0 1.0
-                          -0.5  0.5 -0.5  0.0  0.0 -1.0  0.0 1.0
-                          -0.5 -0.5 -0.5  0.0  0.0 -1.0  0.0 0.0
+        (setf *shader* (make-shader "model-loading/assimp/shader.vert"
+                                    "model-loading/assimp/shader.frag"))
 
-                          -0.5 -0.5  0.5  0.0  0.0 1.0   0.0 0.0
-                          0.5 -0.5  0.5  0.0  0.0 1.0   1.0 0.0
-                          0.5  0.5  0.5  0.0  0.0 1.0   1.0 1.0
-                          0.5  0.5  0.5  0.0  0.0 1.0   1.0 1.0
-                          -0.5  0.5  0.5  0.0  0.0 1.0   0.0 1.0
-                          -0.5 -0.5  0.5  0.0  0.0 1.0   0.0 0.0
-
-                          -0.5  0.5  0.5 -1.0  0.0  0.0  1.0 0.0
-                          -0.5  0.5 -0.5 -1.0  0.0  0.0  1.0 1.0
-                          -0.5 -0.5 -0.5 -1.0  0.0  0.0  0.0 1.0
-                          -0.5 -0.5 -0.5 -1.0  0.0  0.0  0.0 1.0
-                          -0.5 -0.5  0.5 -1.0  0.0  0.0  0.0 0.0
-                          -0.5  0.5  0.5 -1.0  0.0  0.0  1.0 0.0
-
-                          0.5  0.5  0.5  1.0  0.0  0.0  1.0 0.0
-                          0.5  0.5 -0.5  1.0  0.0  0.0  1.0 1.0
-                          0.5 -0.5 -0.5  1.0  0.0  0.0  0.0 1.0
-                          0.5 -0.5 -0.5  1.0  0.0  0.0  0.0 1.0
-                          0.5 -0.5  0.5  1.0  0.0  0.0  0.0 0.0
-                          0.5  0.5  0.5  1.0  0.0  0.0  1.0 0.0
-
-                          -0.5 -0.5 -0.5  0.0 -1.0  0.0  0.0 1.0
-                          0.5 -0.5 -0.5  0.0 -1.0  0.0  1.0 1.0
-                          0.5 -0.5  0.5  0.0 -1.0  0.0  1.0 0.0
-                          0.5 -0.5  0.5  0.0 -1.0  0.0  1.0 0.0
-                          -0.5 -0.5  0.5  0.0 -1.0  0.0  0.0 0.0
-                          -0.5 -0.5 -0.5  0.0 -1.0  0.0  0.0 1.0
-
-                          -0.5  0.5 -0.5  0.0  1.0  0.0  0.0 1.0
-                          0.5  0.5 -0.5  0.0  1.0  0.0  1.0 1.0
-                          0.5  0.5  0.5  0.0  1.0  0.0  1.0 0.0
-                          0.5  0.5  0.5  0.0  1.0  0.0  1.0 0.0
-                          -0.5  0.5  0.5  0.0  1.0  0.0  0.0 0.0
-                          -0.5  0.5 -0.5  0.0  1.0  0.0  0.0 1.0
-                          )))
-          (setf *gl-triangle*
-                (loop :with gl-array = (gl:alloc-gl-array :float (length vertices))
-                      :for i :from 0 :below (length vertices) :do
-                        (setf (gl:glaref gl-array i)
-                              (elt vertices i))
-                      :finally (return gl-array))))
-
+        (setf *model* (load-model "assets/box/box.obj"))
         
-        (setf *vao* (gl:gen-vertex-array))
-        (setf *vao-light* (gl:gen-vertex-array))
-        (setf *vbo* (gl:gen-buffer))
 
-        (gl:bind-vertex-array *vao*)
-        (gl:bind-buffer :array-buffer *vbo*)
-        (gl:buffer-data :array-buffer :static-draw *gl-triangle*)
-        (gl:enable-vertex-attrib-array 0)
-        (gl:vertex-attrib-pointer 0 3 :float 0 (* 8 (cffi:foreign-type-size :float)) 0)
-        (gl:enable-vertex-attrib-array 1)
-        (gl:vertex-attrib-pointer 1 3 :float 0 (* 8 (cffi:foreign-type-size :float)) (* 3 (cffi:foreign-type-size :float)))
-        (gl:enable-vertex-attrib-array 2)
-        (gl:vertex-attrib-pointer 2 2 :float 0 (* 8 (cffi:foreign-type-size :float)) (* 6 (cffi:foreign-type-size :float)))
-
-        (gl:bind-vertex-array *vao-light*)
-        (gl:bind-buffer :array-buffer *vbo*)
-        ;; data already in gpu
-        (gl:enable-vertex-attrib-array 0)
-        (gl:vertex-attrib-pointer 0 3 :float 0 (* 8 (cffi:foreign-type-size :float)) 0)
-
-        (gl:bind-vertex-array 0)
-        (gl:bind-buffer :array-buffer 0)
-
-
-        (progn
-          (setf *diffuse-texture* (gl:gen-texture))
-          (gl:bind-texture :texture-2d *diffuse-texture*)
-          (gl:tex-parameter :texture-2d :texture-wrap-s :repeat)
-          (gl:tex-parameter :texture-2d :texture-wrap-t :repeat)
-          (gl:tex-parameter :texture-2d :texture-min-filter :linear)
-          (gl:tex-parameter :texture-2d :texture-mag-filter :linear)
-
-          (let ((image (sdl2-image:load-png-rw "./assets/container2.png")))
-            (gl:tex-image-2d :texture-2d 0 :rgb
-                             (sdl2:surface-width image) (sdl2:surface-height image)
-                             0 :rgba :unsigned-byte (sdl2:surface-pixels image))
-            (gl:generate-mipmap :texture-2d)
-            (sdl2:free-surface image)))
-
-        (progn
-          (setf *specular-texture* (gl:gen-texture))
-          (gl:bind-texture :texture-2d *specular-texture*)
-          (gl:tex-parameter :texture-2d :texture-wrap-s :repeat)
-          (gl:tex-parameter :texture-2d :texture-wrap-t :repeat)
-          (gl:tex-parameter :texture-2d :texture-min-filter :linear)
-          (gl:tex-parameter :texture-2d :texture-mag-filter :linear)
-
-          (let ((image (sdl2-image:load-png-rw "./assets/container2_specular.png")))
-            (gl:tex-image-2d :texture-2d 0 :rgb
-                             (sdl2:surface-width image) (sdl2:surface-height image)
-                             0 :rgba :unsigned-byte (sdl2:surface-pixels image))
-            (gl:generate-mipmap :texture-2d)
-            (sdl2:free-surface image)))
-          
         (gl:viewport 0 0 *width* *height*)
-        (set-uniformi *shader* "material.diffuse" 0)
-        (set-uniformi *shader* "material.specular" 1)
 
         (sdl2:with-event-loop (:method :poll)
           (:keydown (:keysym keysym)
@@ -659,7 +469,6 @@
                         ((sdl2:scancode= scancode :scancode-o)
                          (adjust-camera-fov 1)))))
           (:idle ()
-                 (move-light)
                  (draw)
                  (sdl2:delay 33)
                  (sdl2:gl-swap-window win))
@@ -670,10 +479,4 @@
         (progn
           (gl:use-program 0)
           (gl:delete-program (program-id *shader*))
-          (gl:bind-vertex-array 0)
-          (gl:delete-vertex-arrays (list *vao*))
-          (setf *vao* nil)
-          (gl:delete-buffers (list *vbo*))
-          (setf *vbo* nil)
-          (gl:free-gl-array *gl-triangle*)
-          (setf *gl-triangle* nil))))))
+          (gl:bind-vertex-array 0))))))
