@@ -156,9 +156,6 @@ void main()
   vec3 result = CalcDirLight(dirLight, n, viewDir);
   // result = CalcPointLight(pointLights[0], n, FragPos, viewDir);
   // result = CalcSpotLight(spotLight, n, FragPos, viewDir);
-  
-  result = NoTexLight(dirLight, n, viewDir);
 
   FragColor = vec4(result, 1.0);
-  FragColor = vec4(1.0, 1.0, 1.0, 1.0);
 }

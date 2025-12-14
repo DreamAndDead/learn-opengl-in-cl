@@ -218,16 +218,18 @@
         do (draw-mesh mesh shader)))
 
 (defun draw ()
-  (gl:clear-color 1.0 0.0 0.0 1.0)
+  (gl:clear-color 0.0 0.0 0.0 1.0)
   (gl:enable :depth-test)
   (gl:clear :color-buffer-bit :depth-buffer-bit)
 
   (use *shader*)
 
-  (let ((view (kit.glm:identity-matrix))
+  (let ((model (kit.glm:identity-matrix))
+        (view (kit.glm:identity-matrix))
         (proj (kit.glm:identity-matrix)))
     (setf view (get-view-mat))
     (setf proj (kit.glm:perspective-matrix (kit.glm:deg-to-rad (fov *camera*)) (float (/ *width* *height*)) 0.1 100.0))
+    (set-mat4fv *shader* "model" model)
     (set-mat4fv *shader* "view" view)
     (set-mat4fv *shader* "proj" proj))
 
@@ -254,14 +256,14 @@
     (gl:tex-parameter :texture-2d :texture-mag-filter mag)
 
     (let* ((type (pathname-type file))
-           (image (case type
-                    ("png" (sdl2-image:load-png-rw file))
-                    ("jpg" (sdl2-image:load-jpg-rw file))
-                    (otherwise (format t "Error: load texture unsupported format ~a~%" type))))
-           (pixel-format (case type
-                           ("png" :rgba)
-                           ("jpg" :rgb)
-                           (otherwise :rgb))))
+           (image (cond
+                    ((string= type "jpg") (sdl2-image:load-jpg-rw file))
+                    ((string= type "png") (sdl2-image:load-png-rw file))
+                    (t (format t "Error: load texture unsupported format ~a~%" type))))
+           (pixel-format (cond
+                           ((string= type "png") :rgba)
+                           ((string= type "jpg") :rgb)
+                           (t :rgb))))
       (gl:tex-image-2d :texture-2d 0 :rgb
                        (sdl2:surface-width image) (sdl2:surface-height image)
                        0 pixel-format :unsigned-byte (sdl2:surface-pixels image))
@@ -270,7 +272,7 @@
     (gl:bind-texture :texture-2d 0)
     tex-id))
 
-(defvar *texture-cache* nil)
+(defvar *texture-cache* (make-hash-table))
 
 (defun load-texture-cached (file)
   (cond
@@ -392,7 +394,9 @@
   (classimp:with-log-to-stdout ()
     (let ((scene (classimp:import-into-lisp
                   path :processing-flags '(:ai-process-triangulate
-                                           :ai-process-flip-u-vs)))
+                                           ;; sdl image load image is upside down agaist opengl, so no flip uv here
+                                           ;; :ai-process-flip-u-vs
+                                           )))
           (model (make-instance 'model)))
       (unless (and scene
                    (not (classimp:scene-incomplete-p scene))
@@ -434,7 +438,9 @@
         (setf *shader* (make-shader "model-loading/assimp/shader.vert"
                                     "model-loading/assimp/shader.frag"))
 
-        (setf *model* (load-model "assets/box/box.obj"))
+        ;; (setf *model* (load-model "assets/box/box.obj"))
+        ;; (setf *model* (load-model "assets/box-with-textures/box.obj"))
+        (setf *model* (load-model "assets/backpack/backpack.obj"))
         
 
         (gl:viewport 0 0 *width* *height*)
