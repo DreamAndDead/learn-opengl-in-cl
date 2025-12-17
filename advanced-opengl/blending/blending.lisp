@@ -1,4 +1,4 @@
-;; https://learnopengl.com/Model-Loading/Model
+;; https://learnopengl.com/Advanced-OpenGL/Blending
 (in-package :cl-user)
 
 (ql:quickload :sdl2)
@@ -13,8 +13,11 @@
 
 (defvar *camera* nil)
 (defvar *shader* nil)
+(defvar *shader-pure-color* nil)
 (defvar *model* nil)
 (defvar *model-floor* nil)
+(defvar *model-grass* nil)
+(defvar *model-glass* nil)
 
 (defparameter *light-color* '(1.0 1.0 1.0))
 (defparameter *light-pos* '(1.2 0.0 0.0))
@@ -218,12 +221,22 @@
 
 (defun draw ()
   (gl:clear-color 0.0 0.0 0.0 1.0)
-  (gl:enable :depth-test)
+
+  (gl:enable :stencil-test)
+  (gl:stencil-mask #xff) ; int val AND op before writing into stencil buffer
+  ;; (gl:stencil-mask #x00) ; disable
+  (gl:stencil-func :always 1 #xff)
+  (gl:stencil-op :keep :keep :keep)
+  (gl:clear-stencil 0)
   
+  (gl:enable :depth-test)
   ;; (gl:depth-mask :false) ; read only depth buffer
   (gl:depth-func :less)
   
-  (gl:clear :color-buffer-bit :depth-buffer-bit)
+  (gl:clear :color-buffer-bit :depth-buffer-bit :stencil-buffer-bit)
+
+  (gl:enable :blend)
+  (gl:blend-func :src-alpha :one-minus-src-alpha)
 
   (use *shader*)
 
@@ -246,22 +259,32 @@
 
   (set-uniformf *shader* "material.shininess" (* 0.1 128))
 
-  (draw-model *model* *shader*)
 
-
+  ;; opaque first
+  ;; sort transparent objects
+  ;; draw transparent
   (let ((model (kit.glm:translate* 0.0 -1.0 0.0)))
     (set-mat4fv *shader* "model" model))
-
   (draw-model *model-floor* *shader*)
+  
+  (let ((model (kit.glm:identity-matrix)))
+    (set-mat4fv *shader* "model" model))
+  (draw-model *model* *shader*)
 
   (let ((model (kit.glm:translate* 0.0 0.0 -3.0)))
     (set-mat4fv *shader* "model" model))
-
   (draw-model *model* *shader*)
 
-  )
 
-(defun load-texture (file &key (wrap-s :repeat) (wrap-t :repeat)
+  (let ((model (kit.glm:translate* 3.0 0.0 0.0)))
+    (set-mat4fv *shader* "model" model))
+  (draw-model *model-glass* *shader*)
+
+  (let ((model (kit.glm:translate* 3.0 0.0 1.0)))
+    (set-mat4fv *shader* "model" model))
+  (draw-model *model-glass* *shader*))
+
+(defun load-texture (file &key (wrap-s :clamp-to-edge) (wrap-t :clamp-to-edge)
                             (min :linear-mipmap-linear)
                             (mag :linear))
   (let ((tex-id (gl:gen-texture)))
@@ -280,7 +303,7 @@
                            ((string= type "png") :rgba)
                            ((string= type "jpg") :rgb)
                            (t :rgb))))
-      (gl:tex-image-2d :texture-2d 0 :rgb
+      (gl:tex-image-2d :texture-2d 0 pixel-format
                        (sdl2:surface-width image) (sdl2:surface-height image)
                        0 pixel-format :unsigned-byte (sdl2:surface-pixels image))
       (gl:generate-mipmap :texture-2d)
@@ -432,6 +455,8 @@
       (sdl2:gl-set-attr :context-profile-mask
                         sdl2-ffi:+sdl-gl-context-profile-core+)
       (sdl2:gl-set-attr :doublebuffer 1)
+      (sdl2:gl-set-attr :depth-size 24)
+      (sdl2:gl-set-attr :stencil-size 8)
       #+darwin
       (sdl2:gl-set-attr :context-forward-compatible-flag
                         sdl2-ffi:+sdl-gl-context-forward-compatible-flag+))
@@ -451,12 +476,16 @@
                                       :pitch -33.0
                                       :fov 45.0))
 
-        (setf *shader* (make-shader "advanced-opengl/depth-testing/shader.vert"
-                                    "advanced-opengl/depth-testing/shader.frag"))
+        (setf *shader* (make-shader "advanced-opengl/blending/shader.vert"
+                                    "advanced-opengl/blending/shader.frag"))
+        (setf *shader-pure-color* (make-shader "advanced-opengl/blending/pure-color.vert"
+                                               "advanced-opengl/blending/pure-color.frag"))
 
         (setf *model* (load-model "assets/box/box.obj"))
         ;; (setf *model* (load-model "assets/backpack/backpack.obj"))
         (setf *model-floor* (load-model "assets/floor/floor.obj"))
+        (setf *model-grass* (load-model "assets/box/grass.obj"))
+        (setf *model-glass* (load-model "assets/box/glass.obj"))
         
 
         (gl:viewport 0 0 *width* *height*)
