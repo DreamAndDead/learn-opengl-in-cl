@@ -254,26 +254,8 @@
   (gl:front-face :ccw)
   (gl:cull-face :back)
 
-  (use *shader-skybox*)
-  (let ((model (kit.glm:identity-matrix))
-        (view (kit.glm:identity-matrix))
-        (proj (kit.glm:identity-matrix)))
-    (setf model (kit.glm:translate (pos *camera*)))
-    (setf view (get-view-mat))
-    (setf proj (kit.glm:perspective-matrix (kit.glm:deg-to-rad (fov *camera*)) (float (/ *width* *height*)) 0.1 100.0))
-    (set-mat4fv *shader-skybox* "model" model)
-    (set-mat4fv *shader-skybox* "view" view)
-    (set-mat4fv *shader-skybox* "proj" proj))
-
-  (gl:bind-texture :texture-cube-map *cubemap-texture*)
-  (gl:disable :cull-face)
-  (gl:disable :depth-test)
-  (draw-model *model* *shader-skybox*)
-  (gl:enable :depth-test)
-  (gl:enable :cull-face)
 
   (use *shader*)
-
   (let ((model (kit.glm:identity-matrix))
         (view (kit.glm:identity-matrix))
         (proj (kit.glm:identity-matrix)))
@@ -290,9 +272,7 @@
   (set-uniformf *shader* "dirLight.ambient" 0.2 0.2 0.2)
   (set-uniformf *shader* "dirLight.diffuse" 0.5 0.5 0.5)
   (set-uniformf *shader* "dirLight.specular" 1.0 1.0 1.0)
-
   (set-uniformf *shader* "material.shininess" (* 0.1 128))
-
 
   ;; opaque first
   ;; sort transparent objects
@@ -300,6 +280,25 @@
   (let ((model (kit.glm:translate* 0.0 0.0 0.0)))
     (set-mat4fv *shader* "model" model))
   (draw-model *model* *shader*)
+
+
+  (use *shader-skybox*)
+  (let ((model (kit.glm:identity-matrix))
+        (view (kit.glm:identity-matrix))
+        (proj (kit.glm:identity-matrix)))
+    (setf model (kit.glm:translate (pos *camera*)))
+    (setf view (get-view-mat))
+    (setf proj (kit.glm:perspective-matrix (kit.glm:deg-to-rad (fov *camera*)) (float (/ *width* *height*)) 0.1 100.0))
+    (set-mat4fv *shader-skybox* "model" model)
+    (set-mat4fv *shader-skybox* "view" view)
+    (set-mat4fv *shader-skybox* "proj" proj))
+
+  (gl:bind-texture :texture-cube-map *cubemap-texture*)
+  (gl:disable :cull-face)
+  (gl:depth-func :lequal)
+  (draw-model *model* *shader-skybox*)
+  (gl:enable :cull-face)
+
 
   ;; second pass
   ;; back to default, draw quad

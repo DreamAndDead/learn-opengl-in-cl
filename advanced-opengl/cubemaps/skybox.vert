@@ -12,6 +12,7 @@ uniform mat4 model;
 
 void main()
 {
-  gl_Position = proj * view * model * vec4(aPos, 1.0);
   texCoord = aPos;
+  vec4 pos = proj * view * model * vec4(aPos, 1.0);
+  gl_Position = pos.xyww;
 }
