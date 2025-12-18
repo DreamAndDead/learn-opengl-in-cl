@@ -274,11 +274,14 @@
   (set-uniformf *shader* "dirLight.specular" 1.0 1.0 1.0)
   (set-uniformf *shader* "material.shininess" (* 0.1 128))
 
+
   ;; opaque first
   ;; sort transparent objects
   ;; draw transparent
   (let ((model (kit.glm:translate* 0.0 0.0 0.0)))
     (set-mat4fv *shader* "model" model))
+
+  (gl:bind-texture :texture-cube-map *cubemap-texture*)
   (draw-model *model* *shader*)
 
 

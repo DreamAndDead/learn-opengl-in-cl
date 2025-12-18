@@ -54,6 +54,7 @@ struct SpotLight {
 };
 
 uniform vec3 viewPos;
+uniform samplerCube skybox;
 
 uniform DirectionalLight dirLight;
 #define NR_POINT_LIGHTS 4
@@ -138,17 +139,8 @@ vec4 NoLight()
 void main()
 {
   vec3 n = normalize(norm);
-  vec3 viewDir = normalize(viewPos - FragPos);
-
-  // result = CalcDirLight(dirLight, n, viewDir);
-  // result = CalcPointLight(pointLights[0], n, FragPos, viewDir);
-  // result = CalcSpotLight(spotLight, n, FragPos, viewDir);
-
-  vec4 texColor = NoLight();
-
-  // when disable blending
-  // if (texColor.a < 0.1)
-  //  discard;
+  vec3 viewDir = normalize(FragPos - viewPos);
+  vec3 reflectDir = reflect(viewDir, n);
   
-  FragColor = texColor;
+  FragColor = vec4(texture(skybox, reflectDir).rgb, 1.0);
 }

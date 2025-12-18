@@ -18,6 +18,7 @@ void main()
 {
   gl_Position = proj * view * model * vec4(aPos, 1.0);
   FragPos = vec3(model * vec4(aPos, 1.0));
+  // FIXME mat3(transpose(inverse(model))) * aNormal
   norm = vec3(model * vec4(aNormal, 0.0));
   TexCoord = aTex;
 }

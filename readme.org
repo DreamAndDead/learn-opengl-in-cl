@@ -13,18 +13,18 @@ then, launch
 #+begin_src
   $ git clone https://github.com/DreamAndDead/learn-opengl-in-cl.git
   $ cd learn-opengl-in-cl
-  $ sbcl --load getting-started/hello-window.lisp --eval '(main)'
+  $ sbcl --load getting-started/hello-window.lisp --eval "(main)"
 #+end_src
 
-** tested on
+** tested with
 
-- my machine
-  - Freebsd 15.0 AMD64 
-  - sbcl 2.5.7
+- Linux Mint
+- sbcl 2.5.11
+- [ ] sdl2
+- [ ] sdl2-image
 
 ** todo
 
-- [ ] glut instead of sdl?
 - [ ] shader live coding
 
 ** inspired by
