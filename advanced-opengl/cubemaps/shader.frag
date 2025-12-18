@@ -141,6 +141,9 @@ void main()
   vec3 n = normalize(norm);
   vec3 viewDir = normalize(FragPos - viewPos);
   vec3 reflectDir = reflect(viewDir, n);
-  
   FragColor = vec4(texture(skybox, reflectDir).rgb, 1.0);
+
+  float ratio = 1.00 / 1.52; // air / glass
+  vec3 refractDir = refract(viewDir, n, ratio);
+  FragColor = vec4(texture(skybox, refractDir).rgb, 1.0);
 }
