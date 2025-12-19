@@ -1,10 +1,6 @@
 #version 330 core
 
-in VS_OUT {
-  vec3 norm;
-  vec3 FragPos;
-  vec2 TexCoord;
-} fs_in;
+in vec2 TexCoords;
 
 struct Material {
   sampler2D diffuse1;
@@ -69,7 +65,7 @@ out vec4 FragColor;
 
 vec4 NoLight()
 {
-  return texture(material.diffuse1, fs_in.TexCoord);
+  return texture(material.diffuse1, TexCoords);
 }
 
 void main()

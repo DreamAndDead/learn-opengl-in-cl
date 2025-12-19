@@ -6,16 +6,16 @@ layout (location = 2) in vec2 aTex;
 layout (location = 3) in vec3 aTangent;
 layout (location = 4) in vec3 aBitangent;
 
-uniform mat4 proj;
 uniform mat4 view;
 uniform mat4 model;
 
 out VS_OUT {
-  vec2 texCoords;
+  vec3 normal;
 } vs_out;
 
 void main()
 {
-  gl_Position = proj * view * model * vec4(aPos, 1.0);
-  vs_out.texCoords = aTex;
+  gl_Position = view * model * vec4(aPos, 1.0);
+  mat3 normalMat = mat3(transpose(inverse(view * model)));
+  vs_out.normal = normalize(vec3(vec4(normalMat * aNormal, 0.0)));
 }
