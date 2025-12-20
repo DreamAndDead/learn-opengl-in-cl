@@ -1,4 +1,4 @@
-;; https://learnopengl.com/Advanced-OpenGL/Geometry-Shader
+;; https://learnopengl.com/Advanced-OpenGL/Instancing
 (in-package :cl-user)
 
 (ql:quickload :sdl2)
@@ -12,15 +12,7 @@
 (defparameter *height* 540)
 
 (defvar *camera* nil)
-(defvar *shader* nil)
-(defvar *shader-point* nil)
-(defvar *shader-skybox* nil)
-
-(defvar *model* nil)
-(defvar *model-floor* nil)
-(defvar *model-grass* nil)
-(defvar *model-glass* nil)
-(defvar *model-quad* nil)
+(defvar *shader-instancing* nil)
 
 (defvar *frame-buffer* nil)
 (defvar *frame-texture* nil)
@@ -246,11 +238,17 @@
   (gl:clear-color 0.0 0.0 0.0 1.0)
   (gl:clear :color-buffer-bit :depth-buffer-bit :stencil-buffer-bit)
 
-  (gl:enable :program-point-size)
-  (use *shader-point*)
-  (set-uniformf *shader-point* "PointSize" 10.0)
+  (use *shader-instancing*)
+
+  (loop for i from 0 below 100
+        do (let* ((col (rem i 10))
+                  (row (/ (- i col) 10)))
+             (set-uniformf *shader-instancing* (format nil "offsets[~a]" i)
+                           (+ -0.6 (* col 0.15))
+                           (+ -0.6 (* row 0.15)))))
+
   (gl:bind-vertex-array *vao*)
-  (gl:draw-arrays :points 0 4))
+  (gl:draw-arrays-instanced :triangles 0 6 100))
 
 (defun load-texture (file &key (wrap-s :clamp-to-edge) (wrap-t :clamp-to-edge)
                             (min :linear-mipmap-linear)
@@ -459,22 +457,18 @@
                                       :pitch -33.0
                                       :fov 45.0))
 
-        (setf *shader* (make-shader "advanced-opengl/geometry-shader/shader.vert"
-                                    "advanced-opengl/geometry-shader/shader.frag"))
-        (setf *shader-point* (make-shader "advanced-opengl/geometry-shader/point.vert"
-                                          "advanced-opengl/geometry-shader/point.frag"
-                                          "advanced-opengl/geometry-shader/point.geom"))
+        (setf *shader-instancing* (make-shader "advanced-opengl/instancing/instancing.vert"
+                                               "advanced-opengl/instancing/instancing.frag"))
 
+        (let ((vertices #(   
+                          -0.05  0.05  1.0 0.0 0.0
+                          0.05 -0.05  0.0 1.0 0.0
+                          -0.05 -0.05  0.0 0.0 1.0
 
-        (setf *model* (load-model "assets/box/box.obj"))
-        ;; (setf *model* (load-model "assets/backpack/backpack.obj"))
-        (setf *model-floor* (load-model "assets/floor/floor.obj"))
-
-
-        (let ((vertices #(0.5 0.5 0.0  1.0 0.0 0.0
-                          0.5 -0.5 0.0  1.0 0.0 0.0
-                          -0.5 -0.5 0.0  1.0 0.0 1.0
-                          -0.5 0.5 0.0  1.0 0.0 1.0)))
+                          -0.05  0.05  1.0 0.0 0.0
+                          0.05 -0.05  0.0 1.0 0.0   
+                          0.05  0.05  0.0 1.0 1.0
+                          )))
           (setf *gl-triangle*
                 (loop :with gl-array = (gl:alloc-gl-array :float (length vertices))
                       :for i :from 0 :below (length vertices) :do
@@ -491,9 +485,9 @@
         (gl:buffer-data :array-buffer :static-draw *gl-triangle*)
 
         (gl:enable-vertex-attrib-array 0)
-        (gl:vertex-attrib-pointer 0 3 :float 0 (* 6 (cffi:foreign-type-size :float)) 0)
+        (gl:vertex-attrib-pointer 0 2 :float 0 (* 5 (cffi:foreign-type-size :float)) 0)
         (gl:enable-vertex-attrib-array 1)
-        (gl:vertex-attrib-pointer 1 3 :float 0 (* 6 (cffi:foreign-type-size :float)) (* 3 (cffi:foreign-type-size :float)))
+        (gl:vertex-attrib-pointer 1 3 :float 0 (* 5 (cffi:foreign-type-size :float)) (* 2 (cffi:foreign-type-size :float)))
 
         (gl:bind-vertex-array 0)
         (gl:bind-buffer :array-buffer 0)
@@ -540,7 +534,7 @@
         (sdl2-image:quit)
 
         (progn
-          (gl:delete-program (program-id *shader*))
+          (gl:delete-program (program-id *shader-instancing*))
           (gl:use-program 0)
           (setf *texture-cache* (make-hash-table))
           (gl:bind-vertex-array 0))))))
