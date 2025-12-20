@@ -19,6 +19,7 @@
 
 (defvar *vao* nil)
 (defvar *vbo* nil)
+(defvar *vbo-instance* nil)
 (defvar *gl-triangle* nil)
 
 (defvar *cubemap-texture* nil)
@@ -239,13 +240,6 @@
   (gl:clear :color-buffer-bit :depth-buffer-bit :stencil-buffer-bit)
 
   (use *shader-instancing*)
-
-  (loop for i from 0 below 100
-        do (let* ((col (rem i 10))
-                  (row (/ (- i col) 10)))
-             (set-uniformf *shader-instancing* (format nil "offsets[~a]" i)
-                           (+ -0.6 (* col 0.15))
-                           (+ -0.6 (* row 0.15)))))
 
   (gl:bind-vertex-array *vao*)
   (gl:draw-arrays-instanced :triangles 0 6 100))
@@ -476,8 +470,11 @@
                               (elt vertices i))
                       :finally (return gl-array))))
 
+
+
         (setf *vao* (gl:gen-vertex-array))
         (setf *vbo* (gl:gen-buffer))
+        (setf *vbo-instance* (gl:gen-buffer))
 
         (gl:bind-vertex-array *vao*)
 
@@ -489,9 +486,27 @@
         (gl:enable-vertex-attrib-array 1)
         (gl:vertex-attrib-pointer 1 3 :float 0 (* 5 (cffi:foreign-type-size :float)) (* 2 (cffi:foreign-type-size :float)))
 
+        (gl:enable-vertex-attrib-array 2)
+        (gl:bind-buffer :array-buffer *vbo-instance*)
+        
+        (static-vectors:with-static-vector (sv 200 :element-type 'single-float)
+          (loop for i from 0 below 100
+                do (let* ((col (rem i 10))
+                          (row (/ (- i col) 10)))
+                     (setf (aref sv (* 2 i)) (+ -0.7 (* col 0.15)))
+                     (setf (aref sv (+ 1 (* 2 i))) (+ -0.7 (* row 0.15)))))
+          (%gl:buffer-data :array-buffer
+                           (* 200 (cffi:foreign-type-size :float))
+                           (static-vectors:static-vector-pointer sv)
+                           :static-draw))
+
+        (gl:vertex-attrib-pointer 2 2 :float 0 (* 2 (cffi:foreign-type-size :float)) 0)
+        (%gl:vertex-attrib-divisor 2 1)
+
         (gl:bind-vertex-array 0)
         (gl:bind-buffer :array-buffer 0)
         
+
 
         (gl:viewport 0 0 *width* *height*)
 
